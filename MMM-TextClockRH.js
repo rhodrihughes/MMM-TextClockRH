@@ -5,7 +5,7 @@
  * MIT Licensed.
  */
 
-Module.register('MMM-text-clock', {
+Module.register('MMM-TextClockRH', {
   defaults: {
     compact: false,
     size: 'medium',
