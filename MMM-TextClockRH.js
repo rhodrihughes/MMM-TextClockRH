@@ -189,11 +189,69 @@ Module.register('MMM-TextClockRH', {
       this.words = revivedPayload.words;
       this.wordMap = revivedPayload.wordMap;
       this.currentLanguage = revivedPayload.language;
+      this.domBuilt = false;
       this.updateDom();
 
       this.updateInterval = setInterval(() => {
-        this.updateDom();
+        this.updateActiveLetters();
       }, 10000);
+    }
+  },
+
+  updateActiveLetters: function () {
+    if (!this.domBuilt || this.compact) {
+      this.updateDom();
+      return;
+    }
+
+    const theTimeNow = new Date();
+    const activeWords = this.getActiveWords(theTimeNow);
+
+    if (this.letters) {
+      const letterIndexes = activeWords.reduce(
+        (acc, word) => [...acc, ...word],
+        []
+      );
+      const letterSpans = this.letterElements;
+      if (letterSpans) {
+        letterSpans.forEach((span, index) => {
+          if (letterIndexes.includes(index)) {
+            span.classList.add('bright');
+          } else {
+            span.classList.remove('bright');
+          }
+        });
+      }
+    } else {
+      const activeWordsList = activeWords.flat(1);
+      const wordSpans = this.wordElements;
+      if (wordSpans) {
+        wordSpans.forEach((item) => {
+          const isActive = activeWordsList.some(
+            (active) => active[0] === item.line && active[1] === item.word
+          );
+          if (isActive) {
+            item.element.classList.add('bright');
+          } else {
+            item.element.classList.remove('bright');
+          }
+        });
+      }
+    }
+
+    // Update minute dots
+    this.dotMinutes = theTimeNow.getMinutes() % 5;
+    if (this.showMinutesIndicators && this.dotElements) {
+      this.dotElements.forEach((dot, i) => {
+        const dotNum = [1, 2, 4, 3][i];
+        if (this.dotMinutes >= dotNum) {
+          dot.classList.remove('minutedot-transparent');
+          dot.classList.add('minutedot');
+        } else {
+          dot.classList.remove('minutedot');
+          dot.classList.add('minutedot-transparent');
+        }
+      });
     }
   },
 
@@ -239,6 +297,11 @@ Module.register('MMM-TextClockRH', {
     this.dotMinutes = theTimeNow.getMinutes() % 5;
     const activeWords = this.getActiveWords(theTimeNow);
 
+    // Store references for animation updates
+    this.letterElements = [];
+    this.wordElements = [];
+    this.dotElements = [];
+
     if (this.letters) {
       // Original mode, letter grid
       grid.classList.add('letters');
@@ -252,6 +315,7 @@ Module.register('MMM-TextClockRH', {
           dot1.classList.add(
             this.dotMinutes < 1 ? 'minutedot-transparent' : 'minutedot'
           );
+          this.dotElements.push(dot1);
           grid.appendChild(dot1);
           for (let index = 0; index < this.gridColumns; index++) {
             grid.appendChild(document.createElement('span'));
@@ -260,20 +324,22 @@ Module.register('MMM-TextClockRH', {
           dot2.classList.add(
             this.dotMinutes < 2 ? 'minutedot-transparent' : 'minutedot'
           );
+          this.dotElements.push(dot2);
           grid.appendChild(dot2);
         }
+        const letterIndexes = activeWords.reduce(
+          (acc, word) => [...acc, ...word],
+          []
+        );
         this.letters.forEach((letter, index) => {
           if (this.showMinutesIndicators && index % this.gridColumns === 0) {
             grid.appendChild(document.createElement('span'));
           }
-          const letterIndexes = activeWords.reduce(
-            (acc, word) => [...acc, ...word],
-            []
-          );
           const element = document.createElement('span');
 
           letterIndexes.includes(index) && element.classList.add('bright');
           element.textContent = letter;
+          this.letterElements.push(element);
 
           grid.appendChild(element);
           if (
@@ -288,6 +354,7 @@ Module.register('MMM-TextClockRH', {
           dot4.classList.add(
             this.dotMinutes < 4 ? 'minutedot-transparent' : 'minutedot'
           );
+          this.dotElements.push(dot4);
           grid.appendChild(dot4);
           for (let index = 0; index < this.gridColumns; index++) {
             grid.appendChild(document.createElement('span'));
@@ -296,6 +363,7 @@ Module.register('MMM-TextClockRH', {
           dot3.classList.add(
             this.dotMinutes < 3 ? 'minutedot-transparent' : 'minutedot'
           );
+          this.dotElements.push(dot3);
           grid.appendChild(dot3);
         }
       }
@@ -314,12 +382,14 @@ Module.register('MMM-TextClockRH', {
           dot1.classList.add(
             this.dotMinutes < 1 ? 'minutedot-transparent' : 'minutedot'
           );
+          this.dotElements.push(dot1);
           grid.appendChild(dot1);
           grid.appendChild(document.createElement('span'));
           const dot2 = document.createElement('span');
           dot2.classList.add(
             this.dotMinutes < 2 ? 'minutedot-transparent' : 'minutedot'
           );
+          this.dotElements.push(dot2);
           grid.appendChild(dot2);
         }
         this.words.forEach((line, indexLine) => {
@@ -340,6 +410,7 @@ Module.register('MMM-TextClockRH', {
             ) {
               wordElement.classList.add('bright');
             }
+            this.wordElements.push({ element: wordElement, line: indexLine, word: indexWord });
             lineElement.appendChild(wordElement);
           });
           grid.appendChild(lineElement);
@@ -352,21 +423,24 @@ Module.register('MMM-TextClockRH', {
           dot4.classList.add(
             this.dotMinutes < 4 ? 'minutedot-transparent' : 'minutedot'
           );
+          this.dotElements.push(dot4);
           grid.appendChild(dot4);
           grid.appendChild(document.createElement('span'));
           const dot3 = document.createElement('span');
           dot3.classList.add(
             this.dotMinutes < 3 ? 'minutedot-transparent' : 'minutedot'
           );
+          this.dotElements.push(dot3);
           grid.appendChild(dot3);
         }
       }
     }
+    this.domBuilt = true;
     return grid;
   },
 
   getStyles: function () {
-    return [this.file('css/MMM-text-clock.css')];
+    return [this.file('MMM-TextClockRH.css')];
   },
 
   /*

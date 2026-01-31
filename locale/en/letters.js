@@ -103,7 +103,7 @@ module.exports = [
   'n',
   's',
   'e',
-  "o'",
+  "o '",
   'c',
   'l',
   'o',

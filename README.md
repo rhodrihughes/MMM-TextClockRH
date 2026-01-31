@@ -19,7 +19,7 @@ cd ~/MagicMirror/modules
 2. Clone this repository
 
 ```bash
-git clone https://github.com/ngnijland/MMM-text-clock.git
+git clone https://github.com/rhodrihughes/MMM-TextClockRH.git
 ```
 
 3. Add this module to the modules array in the MagicMirror `config/config.js` file, like this:
@@ -27,7 +27,7 @@ git clone https://github.com/ngnijland/MMM-text-clock.git
 ```javascript
 modules: [
   {
-    module: "MMM-text-clock",
+    module: "MMM-TextClockRH",
     position: "middle_center"
   }
 ]
@@ -57,7 +57,7 @@ Configure this module in your MagicMirror config file which is located at `confi
 ```javascript
 modules: [
   {
-    module: "MMM-text-clock",
+    module: "MMM-TextClockRH",
     position: "middle_center",
     config: {
       // Options
@@ -78,13 +78,3 @@ Config                        | Type                                           |
 `showMinutesIndicators`       | `boolean`                  | `false`       | Shows a dot at each corner of the clock for every minute past the displayed time (e.g. 18 = quarter + 3 dots). This parameter is ignored in compact mode.
 
 ## Todo
-- [x] Code text clock (English)
-- [x] Add description to README
-- [x] Add screenshots to README
-- [x] Add configuration to README
-- [x] Add module to third party module list of MagicMirror
-- [x] Add contribution guide
-- [x] Make styling work for every position available in MagicMirror software
-- [x] Add compact mode
-- [x] Add internationalization (add Dutch laguage)
-- [x] Add documentation on how to contribute a new language

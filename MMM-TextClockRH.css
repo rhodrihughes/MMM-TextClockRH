@@ -20,6 +20,12 @@
 
 .grid {
   display: grid;
+  display: -ms-grid;
+  grid-template-columns: repeat(11, 1fr);
+}
+
+.grid.letters span {
+  text-align: center;
 }
 
 .grid--gap-xsmall {
@@ -52,6 +58,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.MMM-TextClockRH .dimmed {
+  color: #333;
+}
+
+.MMM-TextClockRH .grid span,
+.MMM-TextClockRH .wordlayout span {
+  transition: color 0.5s ease, font-weight 0.5s ease;
+}
+
+.MMM-TextClockRH .bright {
+  font-weight: bold;
 }
 .minutedot,
 .minutedot-transparent {
