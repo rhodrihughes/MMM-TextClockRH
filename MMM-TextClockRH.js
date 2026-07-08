@@ -9,9 +9,22 @@ Module.register('MMM-TextClockRH', {
   defaults: {
     compact: false,
     size: 'medium',
+    fontSize: null,    // e.g. '2rem', '36px', '4vw' — overrides MM default font size
+    dimmedColor: '#333', // color of non-highlighted letters (e.g. '#555', 'rgba(255,255,255,0.1)')
     fullscreen: false,
     showMinutesIndicators: false,
     languageAlternationInterval: 60,
+    // Home Assistant screensaver config
+    homeAssistant: {
+      enabled: false,
+      url: '',           // e.g. 'http://homeassistant.local:8123'
+      token: '',         // Long-lived access token
+      entityId: '',      // e.g. 'input_boolean.screensaver'
+    },
+    screensaverFadeDuration: 1000, // ms for fade in/out transitions
+    // Module names to leave visible during screensaver mode (e.g. overlay
+    // modules that should appear ABOVE the clock, like incoming call alerts).
+    excludeModules: [],
   },
 
   supportedLanguages: ['ar', 'ch', 'de', 'en', 'es', 'fi', 'fr', 'it', 'jp', 'nl', 'tr'],
@@ -25,6 +38,8 @@ Module.register('MMM-TextClockRH', {
     this.languageAlternationInterval = this.config.languageAlternationInterval;
     this.size = this.config.size;
     this.fullscreen = this.config.fullscreen;
+    this.screensaverActive = false;
+    this.screensaverFadeDuration = this.config.screensaverFadeDuration;
 
     /*
      * Validate compact config
@@ -165,6 +180,48 @@ Module.register('MMM-TextClockRH', {
         language: this.language,
       });
     }
+
+    /*
+     * Connect to Home Assistant if configured
+     */
+    const ha = this.config.homeAssistant;
+    if (ha && ha.enabled) {
+      const missing = [];
+      if (!ha.url) missing.push('url');
+      if (!ha.token) missing.push('token');
+      if (!ha.entityId) missing.push('entityId');
+
+      if (missing.length === 0) {
+        Log.info('MMM-TextClockRH: Home Assistant screensaver mode enabled');
+        this.haScreensaverEnabled = true;
+      } else {
+        Log.error(
+          `MMM-TextClockRH: Home Assistant enabled but missing required field(s): ${missing.join(', ')}. ` +
+          'Check for typos (fields are case-sensitive, e.g. "token" not "Token").'
+        );
+        this.haScreensaverEnabled = false;
+      }
+    } else {
+      this.haScreensaverEnabled = false;
+    }
+  },
+
+  notificationReceived: function (notification) {
+    // Once all modules are loaded and DOM is ready, hide ourselves if in HA screensaver mode
+    if (notification === 'DOM_OBJECTS_CREATED' && this.haScreensaverEnabled) {
+      if (!this.screensaverActive) {
+        Log.info('MMM-TextClockRH: DOM ready - hiding clock until HA entity is on');
+        this.hide(0, () => {});
+      }
+      // Now it's safe to connect to HA (node_helper socket is ready)
+      const ha = this.config.homeAssistant;
+      Log.info('MMM-TextClockRH: Sending HA_CONNECT to node_helper');
+      this.sendSocketNotification('HA_CONNECT', {
+        url: ha.url,
+        token: ha.token,
+        entityId: ha.entityId,
+      });
+    }
   },
 
   updateInterval: undefined,
@@ -195,6 +252,19 @@ Module.register('MMM-TextClockRH', {
       this.updateInterval = setInterval(() => {
         this.updateActiveLetters();
       }, 10000);
+    }
+
+    if (notification === 'HA_CONNECTED') {
+      Log.info('MMM-TextClockRH: Connected to Home Assistant');
+    }
+
+    if (notification === 'HA_SCREENSAVER_STATE') {
+      Log.info(`MMM-TextClockRH: Received screensaver state: ${payload.active ? 'ON' : 'OFF'}`);
+      this.setScreensaverMode(payload.active);
+    }
+
+    if (notification === 'HA_ERROR') {
+      Log.error(`MMM-TextClockRH: HA Error - ${payload.message}`);
     }
   },
 
@@ -255,6 +325,70 @@ Module.register('MMM-TextClockRH', {
     }
   },
 
+  setScreensaverMode: function (active) {
+    if (this.screensaverActive === active) return;
+    this.screensaverActive = active;
+
+    const fadeDuration = this.screensaverFadeDuration;
+
+    if (active) {
+      Log.info('MMM-TextClockRH: Activating screensaver mode');
+
+      // Fade out all other modules, except ones the user wants left visible
+      // (e.g. overlay modules that should appear above the clock).
+      const excluded = this.config.excludeModules || [];
+      MM.getModules().enumerate((module) => {
+        if (module.identifier !== this.identifier && !excluded.includes(module.name)) {
+          module.hide(fadeDuration, () => {}, { lockString: 'MMM-TextClockRH-screensaver' });
+        }
+      });
+
+      // After other modules have faded out, show the clock centered on black.
+      // Note: we intentionally do NOT set this.fullscreen (grid--fullscreen);
+      // the screensaver-active wrapper handles the fullscreen black background
+      // and centers the grid at its natural size.
+      setTimeout(() => {
+        this.fullscreen = false;
+        this.compact = false;
+        this.domBuilt = false;
+
+        const wrapper = document.querySelector(`.module.MMM-TextClockRH`);
+        if (wrapper) {
+          wrapper.classList.add('screensaver-active');
+        }
+
+        this.updateDom(0);
+        this.show(fadeDuration, () => {});
+      }, fadeDuration);
+    } else {
+      Log.info('MMM-TextClockRH: Deactivating screensaver mode');
+
+      // Hide the clock first
+      this.hide(fadeDuration, () => {});
+
+      // After clock has faded out, restore and show other modules
+      setTimeout(() => {
+        const wrapper = document.querySelector(`.module.MMM-TextClockRH`);
+        if (wrapper) {
+          wrapper.classList.remove('screensaver-active');
+        }
+
+        this.fullscreen = this.config.fullscreen;
+        this.compact = this.config.compact;
+        this.size = this.config.size;
+        this.domBuilt = false;
+        this.updateDom(0);
+
+        const excluded = this.config.excludeModules || [];
+        MM.getModules().enumerate((module) => {
+          if (module.identifier !== this.identifier && !excluded.includes(module.name)) {
+            module.show(fadeDuration, () => {}, { lockString: 'MMM-TextClockRH-screensaver' });
+          }
+        });
+      }, fadeDuration);
+    }
+  },
+
   getDom: function () {
     if (typeof this.getActiveWords !== 'function') {
       return document.createElement('div');
@@ -291,6 +425,14 @@ Module.register('MMM-TextClockRH', {
 
     if (this.fullscreen) {
       grid.classList.add('grid--fullscreen');
+    }
+
+    if (this.config.fontSize) {
+      grid.style.fontSize = this.config.fontSize;
+    }
+
+    if (!this.compact && this.config.dimmedColor) {
+      grid.style.color = this.config.dimmedColor;
     }
 
     const theTimeNow = new Date();

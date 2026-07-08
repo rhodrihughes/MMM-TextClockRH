@@ -61,7 +61,7 @@
 }
 
 .MMM-TextClockRH .dimmed {
-  color: #333;
+  color: inherit;
 }
 
 .MMM-TextClockRH .grid span,
@@ -100,4 +100,35 @@
 .medium .minutedot-transparent {
   height: 7px;
   width: 7px; 
+}
+
+
+/* Screensaver mode - fullscreen overlay */
+.MMM-TextClockRH.screensaver-active {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  background: black !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Anchor the clock grid dead-center of the screen.
+   Using fixed + translate(-50%, -50%) means increasing fontSize scales
+   the grid outward equally from the exact center. */
+.MMM-TextClockRH.screensaver-active .grid {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  width: max-content;
 }
